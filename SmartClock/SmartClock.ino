@@ -5,6 +5,9 @@
 #include<IRremote.h>
 
 #define dht11Pin 8   //定义温湿度针脚号为8号引脚
+#define ledBlue 6 //定义湿度阈值灯为6号引脚
+#define ledRed 7 //定义温度阈值灯为7号引脚
+#define beep 5 //定义蜂鸣器为5号引脚
 dht11 dht;    //实例化一个对象
 char buf1[50];
 char buf2[50];
@@ -34,11 +37,15 @@ void printTime()//打印时间数据
 
   Serial.println(buf1);
   Serial.println(buf2);
+
 }
 void setup()    //初始化函数，只执行一次
 {
   Serial.begin(9600);      //设置波特率参数
   pinMode(dht11Pin, OUTPUT);    //通过定义将Arduino开发板上dht11Pin引脚(8号口)的工作模式转化为输出模式
+  pinMode(ledBlue, OUTPUT);
+  pinMode(ledRed, OUTPUT);
+  pinMode(beep, OUTPUT);
 
   lcd.init();                  // 初始化LCD
   lcd.backlight();             //设置LCD背景等亮
@@ -49,6 +56,7 @@ void setup()    //初始化函数，只执行一次
 
 void loop()     //loop函数，重复循环执行
 {
+  
   if (irrecv.decode(&results)!=0)  
   {        
       delay(500);
@@ -63,13 +71,14 @@ void loop()     //loop函数，重复循环执行
   }
   switch(Keynum)
   {
-    case 1:  SerialTem();ther();break;
-    case 2:  printTime();
+    case 1:  SerialTem();ther();TemJudge();alarm();break;
+    case 2:  printTime();TemJudge();
             Time tim = rtc.time(); //从DS1302获取时间数据
             lcd.setCursor(0,0);
             lcd.print(buf1);
             lcd.setCursor(0,1);
             lcd.print(buf2);
+            alarm();
             break;
     default: break;
   }   
@@ -93,6 +102,44 @@ void ther()//温湿度计
   lcd.print(humi);
   lcd.setCursor(6,1);
   lcd.print("%");
+}
+void TemJudge()
+{
+  int tol = dht.read(dht11Pin);    //将读取到的值赋给tol
+  int temp = (float)dht.temperature; //将温度值赋值给temp
+  int humi = (float)dht.humidity; //将湿度值赋给humi
+  if(temp>=20)//假如温度高于20度亮红灯
+  {
+    digitalWrite(ledBlue,HIGH);
+  }
+  else digitalWrite(ledBlue,LOW);
+  if(humi>=34)//假如湿度高于34%亮蓝灯
+  {
+    digitalWrite(ledRed,HIGH);
+  }
+  else digitalWrite(ledRed,LOW);
+
+}
+void alarm()
+{
+  digitalWrite(beep,HIGH);
+  int alarm_hr=16;//设置闹钟小时
+  int alarm_min=26;//设置闹钟分钟
+  int alarm_sec=0;//设置闹钟秒
+    Time tim = rtc.time(); //从DS1302获取时间数据
+  
+  snprintf(buf2, sizeof(buf2), "%02d:%02d:%02d",
+           tim.hr, tim.min, tim.sec);
+  if((tim.hr==alarm_hr)&&(tim.min==alarm_min)&&(tim.sec==alarm_sec))
+  {
+    for(int i=0;i<20;i++)
+    {
+    digitalWrite(beep,LOW);
+    delay(100);
+    digitalWrite(beep,HIGH);
+    delay(100);
+    }
+  }
 }
 void SerialTem()//串口打印温度湿度
 {
